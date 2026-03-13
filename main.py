@@ -373,7 +373,7 @@ async def main():
     TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8590402708:AAFXVeapNCGZTxjDx-8tLGAXeG19LS4NTjg")
     GROUP_CHAT_ID = os.environ.get("GROUP_CHAT_ID", "-1003701215218")
     SESSION_COOKIE = os.environ.get("SESSION_COOKIE", "Q05RR0FRUERCUg==")
-    PHPSESSID = os.environ.get("PHPSESSID", "b2nlkharg6fndvr8mdumf2df4u")
+    PHPSESSID = os.environ.get("PHPSESSID", "da8cu9l6cn7c450gsmr4o4e8fo")
     HOST = os.environ.get("HOST", "185.2.83.39")
     TARGET_URL = os.environ.get("TARGET_URL", "/ints/agent/res/data_smscdr.php")
     
