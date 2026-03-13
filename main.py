@@ -372,8 +372,8 @@ async def main():
     # Environment Variables থেকে কনফিগারেশন লোড করুন
     TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8590402708:AAFXVeapNCGZTxjDx-8tLGAXeG19LS4NTjg")
     GROUP_CHAT_ID = os.environ.get("GROUP_CHAT_ID", "-1003701215218")
-    SESSION_COOKIE = os.environ.get("SESSION_COOKIE", "Q05RR0FRUERCUQ==")
-    PHPSESSID = os.environ.get("PHPSESSID", "hq1j3qpuo2v8bmh4i9p8ihc752")
+    SESSION_COOKIE = os.environ.get("SESSION_COOKIE", "Q05RR0FRUERCUg==")
+    PHPSESSID = os.environ.get("PHPSESSID", "b2nlkharg6fndvr8mdumf2df4u")
     HOST = os.environ.get("HOST", "185.2.83.39")
     TARGET_URL = os.environ.get("TARGET_URL", "/ints/agent/res/data_smscdr.php")
     
