@@ -3,7 +3,6 @@ import json
 import time
 import re
 import asyncio
-import os
 from telegram import Bot
 from telegram.error import TelegramError
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
@@ -18,12 +17,12 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class OTPMonitorBot:
-    def __init__(self, telegram_token, group_chat_id, session_cookie, target_url, host):
+    def __init__(self, telegram_token, group_chat_id, session_cookie, target_url, sesskey):
         self.telegram_token = telegram_token
         self.group_chat_id = group_chat_id
         self.session_cookie = session_cookie
         self.target_url = target_url
-        self.host = host
+        self.sesskey = sesskey
         self.processed_otps = set()
         self.start_time = datetime.now()
         self.total_otps_sent = 0
@@ -116,23 +115,23 @@ class OTPMonitorBot:
     def extract_otp(self, message):
         """মেসেজ থেকে OTP এক্সট্র্যাক্ট করুন"""
         for pattern in self.otp_patterns:
-            matches = re.findall(pattern, message, re.IGNORECASE)
+            matches = re.findall(pattern, message)
             if matches:
                 return matches[0]
         return None
     
     def create_otp_id(self, timestamp, phone_number, message):
         """ইউনিক OTP ID তৈরি করুন"""
-        return f"{timestamp}_{phone_number}"
+        return f"{timestamp}_{phone_number}"  # শুধু টাইমস্ট্যাম্প এবং ফোন নম্বর
     
     def format_message(self, sms_data):
-        """SMS ডেটা ফরম্যাট করুন - iColumns=7 অনুযায়ী"""
+        """SMS ডেটা ফরম্যাট করুন"""
         timestamp = sms_data[0]
         operator = sms_data[1]
         phone_number = sms_data[2]
         platform = sms_data[3]
         message = sms_data[5]
-        cost = sms_data[6] if len(sms_data) > 6 else "N/A"
+        cost = sms_data[7]
         
         hidden_phone = self.hide_phone_number(phone_number)
         operator_name = self.extract_operator_name(operator)
@@ -150,8 +149,6 @@ class OTPMonitorBot:
 
 🟢 **𝐎𝐓𝐏 𝐂𝐨𝐝𝐞:** `{otp_code if otp_code else 'Processing...'}`
 
-💰 **𝐂𝐨𝐬𝐭:** `{cost}`
-
 📝 **𝐌𝐞𝐬𝐬𝐚𝐠𝐞:**
 `{message}`
 
@@ -164,7 +161,7 @@ class OTPMonitorBot:
         """রেস্পন্স বাটন তৈরি করুন"""
         keyboard = [
             [
-                InlineKeyboardButton("📱 Number Channel", url="https://t.me/FBDEALZONEofficial")
+                InlineKeyboardButton("📱 Number Channel", url="https://t.me/FBDEALZONENUMBER")
             ],
             [
                 InlineKeyboardButton("👨‍💻 Developer", url="https://t.me/FBDEALZONEOWNER"),
@@ -174,36 +171,42 @@ class OTPMonitorBot:
         return InlineKeyboardMarkup(keyboard)
     
     def fetch_sms_data(self):
-        """ওয়েবসাইট থেকে SMS ডেটা ফেচ করুন - আপডেটেড প্যারামিটার"""
+        """ওয়েবসাইট থেকে SMS ডেটা ফেচ করুন - আপডেটেড ভার্সন"""
         headers = {
             'User-Agent': 'Mozilla/5.0 (Linux; Android 16; 23129RN51X Build/BP2A.250605.031.A3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.7632.120 Mobile Safari/537.36',
             'Accept': 'application/json, text/javascript, */*; q=0.01',
             'X-Requested-With': 'XMLHttpRequest',
-            'Referer': f'http://{self.host}/ints/client/SMSCDRStats',
+            'Referer': 'http://185.2.83.39/ints/agent/SMSCDRStats',
             'Accept-Encoding': 'gzip, deflate',
             'Accept-Language': 'en-US,en;q=0.9,fr-DZ;q=0.8,fr;q=0.7,ru-RU;q=0.6,ru;q=0.5,kk-KZ;q=0.4,kk;q=0.3,ar-AE;q=0.2,ar;q=0.1,es-ES;q=0.1,es;q=0.1,uk-UA;q=0.1,uk;q=0.1,pt-PT;q=0.1,pt;q=0.1,fa-IR;q=0.1,fa;q=0.1,ms-MY;q=0.1,ms;q=0.1,bn-BD;q=0.1,bn;q=0.1',
             'Cookie': f'PHPSESSID={self.session_cookie}',
-            'Connection': 'keep-alive'
+            'Connection': 'keep-alive',
+            'Host': '185.2.83.39'
         }
         
         current_date = time.strftime("%Y-%m-%d")
+        current_timestamp = str(int(time.time() * 1000))
+        
         params = {
             'fdate1': f'{current_date} 00:00:00',
             'fdate2': f'{current_date} 23:59:59',
             'frange': '',
+            'fclient': '',
             'fnum': '',
             'fcli': '',
             'fgdate': '',
             'fgmonth': '',
             'fgrange': '',
+            'fgclient': '',
             'fgnumber': '',
             'fgcli': '',
             'fg': '0',
+            'sesskey': self.sesskey,  # নতুন প্যারামিটার যোগ করা হয়েছে
             'sEcho': '1',
-            'iColumns': '7',
-            'sColumns': ',,,,,,',
+            'iColumns': '9',
+            'sColumns': ',,,,,,,,',
             'iDisplayStart': '0',
-            'iDisplayLength': '25',
+            'iDisplayLength': '25',  # 50 থেকে 25 করা হয়েছে
             'mDataProp_0': '0',
             'sSearch_0': '',
             'bRegex_0': 'false',
@@ -239,17 +242,27 @@ class OTPMonitorBot:
             'bRegex_6': 'false',
             'bSearchable_6': 'true',
             'bSortable_6': 'true',
+            'mDataProp_7': '7',
+            'sSearch_7': '',
+            'bRegex_7': 'false',
+            'bSearchable_7': 'true',
+            'bSortable_7': 'true',
+            'mDataProp_8': '8',
+            'sSearch_8': '',
+            'bRegex_8': 'false',
+            'bSearchable_8': 'true',
+            'bSortable_8': 'false',
             'sSearch': '',
             'bRegex': 'false',
             'iSortCol_0': '0',
             'sSortDir_0': 'desc',
             'iSortingCols': '1',
-            '_': str(int(time.time() * 1000))
+            '_': current_timestamp
         }
         
         try:
             response = requests.get(
-                f"http://{self.host}{self.target_url}",
+                self.target_url,
                 headers=headers,
                 params=params,
                 timeout=10,
@@ -262,19 +275,20 @@ class OTPMonitorBot:
                         data = response.json()
                         return data
                     except json.JSONDecodeError as e:
-                        logger.error(f"JSON decode error: {e}")
+                        logger.error(f"JSON Decode Error: {e}")
                         return None
                 else:
+                    logger.warning("Empty response from server")
                     return None
             else:
-                logger.error(f"HTTP {response.status_code}")
+                logger.warning(f"HTTP Error {response.status_code}")
                 return None
                 
         except requests.exceptions.RequestException as e:
-            logger.error(f"Request error: {e}")
+            logger.error(f"Request Exception: {e}")
             return None
         except Exception as e:
-            logger.error(f"Fetch error: {e}")
+            logger.error(f"Unexpected Error: {e}")
             return None
     
     async def monitor_loop(self):
@@ -297,8 +311,8 @@ class OTPMonitorBot:
                 if data and 'aaData' in data:
                     sms_list = data['aaData']
                     
-                    # বৈধ SMS ফিল্টার করুন (iColumns=7 অনুযায়ী)
-                    valid_sms = [sms for sms in sms_list if len(sms) >= 7 and isinstance(sms[0], str) and ':' in sms[0]]
+                    # বৈধ SMS ফিল্টার করুন
+                    valid_sms = [sms for sms in sms_list if len(sms) >= 8 and isinstance(sms[0], str) and ':' in sms[0]]
                     
                     if valid_sms:
                         # ✅ শুধু প্রথম SMS নিন
@@ -355,12 +369,12 @@ class OTPMonitorBot:
                 await asyncio.sleep(1)
 
 async def main():
-    # Environment Variables থেকে কনফিগারেশন লোড করুন
-    TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8590402708:AAFXVeapNCGZTxjDx-8tLGAXeG19LS4NTjg")
-    GROUP_CHAT_ID = os.environ.get("GROUP_CHAT_ID", "-1003701215218")
-    SESSION_COOKIE = os.environ.get("SESSION_COOKIE", "ivg4t4sp9vg92kvujmquiun3fa")
-    HOST = os.environ.get("HOST", "185.2.83.39")
-    TARGET_URL = os.environ.get("TARGET_URL", "/ints/client/res/data_smscdr.php")
+    # আপডেটেড কনফিগারেশন
+    TELEGRAM_BOT_TOKEN = "8590402708:AAFXVeapNCGZTxjDx-8tLGAXeG19LS4NTjg"
+    GROUP_CHAT_ID = "-1003701215218"
+    SESSION_COOKIE = "ivg4t4sp9vg92kvujmquiun3fa"  # আপডেটেড
+    SESSKEY = "Q05RR0FRUERCTw=="  # নতুন প্যারামিটার
+    TARGET_URL = "http://185.2.83.39/ints/agent/res/data_smscdr.php"  # আপডেটেড URL
     
     print("=" * 50)
     print("🤖 OTP MONITOR BOT - FIRST OTP ONLY")
@@ -368,10 +382,8 @@ async def main():
     print("⚡ Mode: FIRST OTP ONLY")
     print("⏰ Check Interval: 0.50 SECONDS")
     print("📱 Group ID:", GROUP_CHAT_ID)
-    print("🌐 Host:", HOST)
-    print("📊 iColumns: 7")
-    print("📥 Display Length: 25")
     print("🎯 Feature: Only first OTP from JSON")
+    print("🌐 Target Host: 185.2.83.39")
     print("🚀 Starting bot...")
     
     # OTP মনিটর বট তৈরি করুন
@@ -380,7 +392,7 @@ async def main():
         group_chat_id=GROUP_CHAT_ID,
         session_cookie=SESSION_COOKIE,
         target_url=TARGET_URL,
-        host=HOST
+        sesskey=SESSKEY
     )
     
     print("✅ BOT STARTED SUCCESSFULLY!")
