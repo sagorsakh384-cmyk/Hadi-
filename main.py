@@ -9,10 +9,10 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 import logging
 from datetime import datetime
 
-# লগিং কনফিগারেশন
+# লগিং কনফিগারেশন - আরও ডিটেইলড করা হলো
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
+    level=logging.DEBUG  # DEBUG লেভেলে পরিবর্তন করা হলো
 )
 logger = logging.getLogger(__name__)
 
@@ -30,6 +30,7 @@ class OTPMonitorBot:
         self.is_monitoring = True
         self.consecutive_errors = 0
         self.max_consecutive_errors = 5
+        self.telegram_bot = Bot(token=self.telegram_token)  # বট অবজেক্ট আগেই তৈরি করে রাখা
         
         # OTP প্যাটার্ন ডিটেকশন
         self.otp_patterns = [
@@ -59,25 +60,34 @@ class OTPMonitorBot:
         return operator
     
     async def send_telegram_message(self, message, chat_id=None, reply_markup=None):
-        """টেলিগ্রামে মেসেজ সেন্ড করুন"""
+        """টেলিগ্রামে মেসেজ সেন্ড করুন - ডিবাগ সহ"""
         if chat_id is None:
             chat_id = self.group_chat_id
             
         try:
-            bot = Bot(token=self.telegram_token)
-            await bot.send_message(
+            logger.debug(f"📤 Attempting to send message to chat_id: {chat_id}")
+            logger.debug(f"📝 Message preview: {message[:100]}...")
+            
+            # মেসেজ পাঠান
+            sent_message = await self.telegram_bot.send_message(
                 chat_id=chat_id,
                 text=message,
                 parse_mode='Markdown',
                 reply_markup=reply_markup,
                 disable_web_page_preview=True
             )
+            
+            logger.info(f"✅ Message sent successfully! Message ID: {sent_message.message_id}")
             return True
+            
         except TelegramError as e:
             logger.error(f"❌ Telegram Error: {e}")
+            logger.error(f"❌ Error type: {type(e).__name__}")
+            logger.error(f"❌ Chat ID: {chat_id}")
             return False
         except Exception as e:
             logger.error(f"❌ Send Message Error: {e}")
+            logger.error(f"❌ Error type: {type(e).__name__}")
             return False
     
     async def send_startup_message(self):
@@ -109,23 +119,30 @@ class OTPMonitorBot:
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
+        logger.info("📤 Sending startup message...")
         success = await self.send_telegram_message(startup_msg, reply_markup=reply_markup)
+        
         if success:
             logger.info("✅ Startup message sent to group")
+        else:
+            logger.error("❌ Failed to send startup message!")
+            # টেলিগ্রাম কানেকশন টেস্ট
+            await self.test_telegram_connection()
+        
         return success
     
-    async def send_error_alert(self, error_msg):
-        """এরর হলে এলার্ট মেসেজ পাঠান"""
-        alert_msg = f"""
-⚠️ **𝐁𝐨𝐭 𝐄𝐫𝐫𝐨𝐫 𝐀𝐥𝐞𝐫𝐭** ⚠️
-➖➖➖➖➖➖➖➖➖
-
-❌ **Error:** `{error_msg}`
-⏰ **Time:** `{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}`
-
-🔄 **Status:** Attempting to recover...
-        """
-        await self.send_telegram_message(alert_msg)
+    async def test_telegram_connection(self):
+        """টেলিগ্রাম কানেকশন টেস্ট করুন"""
+        try:
+            logger.info("🔍 Testing Telegram connection...")
+            me = await self.telegram_bot.get_me()
+            logger.info(f"✅ Bot connected! Username: @{me.username}")
+            logger.info(f"✅ Bot ID: {me.id}")
+            logger.info(f"✅ Bot name: {me.first_name}")
+            return True
+        except Exception as e:
+            logger.error(f"❌ Bot connection failed: {e}")
+            return False
     
     def extract_otp(self, message):
         """মেসেজ থেকে OTP এক্সট্র্যাক্ট করুন"""
@@ -186,7 +203,7 @@ class OTPMonitorBot:
         return InlineKeyboardMarkup(keyboard)
     
     def fetch_sms_data(self):
-        """ওয়েবসাইট থেকে SMS ডেটা ফেচ করুন - আপডেটেড ভার্সন"""
+        """ওয়েবসাইট থেকে SMS ডেটা ফেচ করুন"""
         headers = {
             'User-Agent': 'Mozilla/5.0 (Linux; Android 16; 23129RN51X Build/BP2A.250605.031.A3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.7632.120 Mobile Safari/537.36',
             'Accept': 'application/json, text/javascript, */*; q=0.01',
@@ -276,6 +293,7 @@ class OTPMonitorBot:
         }
         
         try:
+            logger.debug(f"🌐 Fetching data from API...")
             response = requests.get(
                 self.target_url,
                 headers=headers,
@@ -284,26 +302,23 @@ class OTPMonitorBot:
                 verify=False
             )
             
+            logger.debug(f"📡 API Response Status: {response.status_code}")
+            
             if response.status_code == 200:
-                self.consecutive_errors = 0  # রিসেট এরর কাউন্টার
+                self.consecutive_errors = 0
                 
                 if response.text.strip():
                     try:
                         data = response.json()
+                        logger.debug(f"✅ API data received. Records: {len(data.get('aaData', []))}")
                         return data
                     except json.JSONDecodeError as e:
                         logger.error(f"JSON Decode Error: {e}")
+                        logger.debug(f"Response text: {response.text[:200]}")
                         return None
                 else:
                     logger.warning("Empty response from server")
                     return None
-            elif response.status_code == 403 or response.status_code == 401:
-                # সেশন এক্সপায়ার হয়েছে
-                logger.error(f"Session expired! Status code: {response.status_code}")
-                self.consecutive_errors += 1
-                if self.consecutive_errors >= self.max_consecutive_errors:
-                    asyncio.create_task(self.send_error_alert(f"Session expired! Please update sesskey/PHPSESSID"))
-                return None
             else:
                 logger.warning(f"HTTP Error {response.status_code}")
                 self.consecutive_errors += 1
@@ -321,6 +336,11 @@ class OTPMonitorBot:
     async def monitor_loop(self):
         """মেইন মনিটরিং লুপ"""
         logger.info("🚀 OTP Monitoring Started - FIRST OTP ONLY")
+        
+        # টেলিগ্রাম কানেকশন টেস্ট
+        await self.test_telegram_connection()
+        
+        # স্টার্টআপ মেসেজ পাঠান
         await self.send_startup_message()
         
         check_count = 0
@@ -331,7 +351,7 @@ class OTPMonitorBot:
                 check_count += 1
                 current_time = datetime.now().strftime("%H:%M:%S")
                 
-                if check_count % 10 == 0:  # প্রতি ১০ চেকে একবার লগ
+                if check_count % 10 == 0:
                     logger.info(f"🔍 Check #{check_count} at {current_time}")
                 
                 # API কল
@@ -340,30 +360,41 @@ class OTPMonitorBot:
                 if data and 'aaData' in data:
                     sms_list = data['aaData']
                     
-                    # বৈধ SMS ফিল্টার করুন
-                    valid_sms = [sms for sms in sms_list if len(sms) >= 8 and isinstance(sms[0], str) and ':' in sms[0]]
-                    
-                    if valid_sms:
-                        # ✅ শুধু প্রথম SMS নিন
-                        first_sms = valid_sms[0]
-                        timestamp = first_sms[0]
-                        phone_number = first_sms[2]
-                        message_text = first_sms[5]
+                    if sms_list:
+                        logger.debug(f"📨 Total SMS records: {len(sms_list)}")
                         
-                        # OTP ID তৈরি করুন
-                        otp_id = self.create_otp_id(timestamp, phone_number, message_text)
+                        # বৈধ SMS ফিল্টার করুন
+                        valid_sms = []
+                        for sms in sms_list:
+                            if len(sms) >= 8 and isinstance(sms[0], str) and ':' in sms[0]:
+                                valid_sms.append(sms)
                         
-                        # ✅ শুধুমাত্র নতুন প্রথম OTP চেক করুন
-                        if otp_id not in self.processed_otps:
-                            logger.info(f"🚨 FIRST OTP DETECTED: {timestamp}")
+                        logger.debug(f"✅ Valid SMS records: {len(valid_sms)}")
+                        
+                        if valid_sms:
+                            # প্রথম SMS নিন
+                            first_sms = valid_sms[0]
+                            timestamp = first_sms[0]
+                            phone_number = first_sms[2]
+                            message_text = first_sms[5]
                             
-                            otp_code = self.extract_otp(message_text)
-                            if otp_code:
-                                logger.info(f"🔢 OTP Code: {otp_code}")
+                            # OTP ID তৈরি করুন
+                            otp_id = self.create_otp_id(timestamp, phone_number, message_text)
+                            
+                            if otp_id not in self.processed_otps:
+                                logger.info(f"🚨 FIRST OTP DETECTED: {timestamp}")
+                                logger.info(f"📱 Phone: {phone_number}")
+                                logger.info(f"📝 Message: {message_text[:100]}...")
+                                
+                                otp_code = self.extract_otp(message_text)
+                                if otp_code:
+                                    logger.info(f"🔢 OTP Code: {otp_code}")
                                 
                                 formatted_msg = self.format_message(first_sms)
                                 reply_markup = self.create_response_buttons()
                                 
+                                # টেলিগ্রামে পাঠান
+                                logger.info("📤 Sending to Telegram...")
                                 success = await self.send_telegram_message(
                                     formatted_msg, 
                                     reply_markup=reply_markup
@@ -373,61 +404,42 @@ class OTPMonitorBot:
                                     self.processed_otps.add(otp_id)
                                     self.total_otps_sent += 1
                                     self.last_otp_time = current_time
-                                    
-                                    logger.info(f"✅ FIRST OTP SENT: {timestamp} - Total: {self.total_otps_sent}")
+                                    logger.info(f"✅ FIRST OTP SENT! Total: {self.total_otps_sent}")
                                 else:
-                                    logger.error(f"❌ Failed to send OTP: {timestamp}")
-                        else:
-                            if check_count % 50 == 0:  # মাঝে মাঝে লগ
-                                logger.debug(f"⏩ First OTP Already Processed: {timestamp}")
+                                    logger.error(f"❌ Failed to send OTP to Telegram")
+                            else:
+                                logger.debug(f"⏩ OTP already processed: {timestamp}")
                     else:
-                        if check_count % 20 == 0:
-                            logger.info("ℹ️ No valid SMS records found")
+                        logger.debug("ℹ️ No SMS records found")
                 
-                else:
-                    if check_count % 10 == 0:
-                        logger.warning("⚠️ No data from API")
-                    
-                    # কনসিকিউটিভ এরর চেক
-                    if self.consecutive_errors >= self.max_consecutive_errors:
-                        current_timestamp = time.time()
-                        if current_timestamp - last_error_alert > 300:  # ৫ মিনিট পর পর এলার্ট
-                            await self.send_error_alert(f"{self.consecutive_errors} consecutive errors. Please check!")
-                            last_error_alert = current_timestamp
-                
-                # প্রতি ১০০ চেকে স্ট্যাটাস
-                if check_count % 100 == 0:
-                    logger.info(f"📊 Status - Total First OTPs: {self.total_otps_sent} | Errors: {self.consecutive_errors}")
-                
-                # ✅ 0.50 সেকেন্ড অপেক্ষা
+                # 0.50 সেকেন্ড অপেক্ষা
                 await asyncio.sleep(0.50)
                 
             except Exception as e:
                 logger.error(f"❌ Monitor Loop Error: {e}")
+                logger.exception("Full traceback:")
                 self.consecutive_errors += 1
                 await asyncio.sleep(1)
 
 async def main():
-    # আপডেটেড কনফিগারেশন - নতুন sesskey যোগ করা হয়েছে
+    # কনফিগারেশন
     TELEGRAM_BOT_TOKEN = "8590402708:AAFXVeapNCGZTxjDx-8tLGAXeG19LS4NTjg"
-    GROUP_CHAT_ID = "-1003701215218"
+    GROUP_CHAT_ID = "-1003701215218"  # এটা সঠিক কিনা চেক করুন
     SESSION_COOKIE = "ivg4t4sp9vg92kvujmquiun3fa"
-    SESSKEY = "Q05RR0FRUERCUA=="  # ✅ নতুন sesskey আপডেট করা হয়েছে
+    SESSKEY = "Q05RR0FRUERCUA=="
     TARGET_URL = "http://185.2.83.39/ints/agent/res/data_smscdr.php"
     
-    print("=" * 50)
+    print("=" * 60)
     print("🤖 OTP MONITOR BOT - FIRST OTP ONLY")
-    print("=" * 50)
-    print("⚡ Mode: FIRST OTP ONLY")
-    print("⏰ Check Interval: 0.50 SECONDS")
-    print("📱 Group ID:", GROUP_CHAT_ID)
-    print("🎯 Feature: Only first OTP from JSON")
-    print("🌐 Target Host: 185.2.83.39")
-    print("🔑 Sesskey:", SESSKEY)
-    print("🚀 Starting bot...")
-    print("=" * 50)
+    print("=" * 60)
+    print(f"⚡ Mode: FIRST OTP ONLY")
+    print(f"⏰ Check Interval: 0.50 SECONDS")
+    print(f"📱 Group ID: {GROUP_CHAT_ID}")
+    print(f"🌐 Target Host: 185.2.83.39")
+    print(f"🔑 Sesskey: {SESSKEY}")
+    print("=" * 60)
     
-    # OTP মনিটর বট তৈরি করুন
+    # বট তৈরি করুন
     otp_bot = OTPMonitorBot(
         telegram_token=TELEGRAM_BOT_TOKEN,
         group_chat_id=GROUP_CHAT_ID,
@@ -436,16 +448,12 @@ async def main():
         sesskey=SESSKEY
     )
     
-    print("✅ BOT STARTED SUCCESSFULLY!")
-    print("🎯 Monitoring: ACTIVE")
-    print("🚀 Mode: FIRST OTP ONLY")
-    print("⏰ Check Speed: 0.50 seconds")
-    print("📊 Each first OTP sent ONLY ONCE")
-    print("-" * 50)
-    print("🛑 Press Ctrl+C to stop the bot")
-    print("=" * 50)
+    print("✅ BOT INITIALIZED!")
+    print("🚀 Starting monitoring loop...")
+    print("-" * 60)
+    print("🛑 Press Ctrl+C to stop")
+    print("=" * 60)
     
-    # মনিটরিং শুরু করুন
     try:
         await otp_bot.monitor_loop()
     except KeyboardInterrupt:
@@ -455,9 +463,7 @@ async def main():
         print("👋 Goodbye!")
 
 if __name__ == "__main__":
-    # SSL warning disable
     import urllib3
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     
-    # এসিঙ্ক্রোনাস মেইন ফাংশন রান করুন
     asyncio.run(main())
