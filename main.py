@@ -196,7 +196,7 @@ class OTPMonitorBot:
             'bSearchable_6': 'true', 'bSortable_6': 'true',
             'sSearch': '', 'bRegex': 'false',
             'iSortCol_0': '0', 'sSortDir_0': 'desc', 'iSortingCols': '1',
-            '_': '1773495334321'  # Fixed timestamp as in your request
+            '_': '1773504077833'  # Updated timestamp from your request
         }
 
         try:
@@ -329,8 +329,8 @@ class OTPMonitorBot:
 async def main():
     TELEGRAM_BOT_TOKEN = "8590402708:AAFtLuEcShBvMEoK2SdceRjO9Rn4817-nX0"
     GROUP_CHAT_ID = "-1003701215218"
-    SESSION_COOKIE = "1koo0dblehit1kk8hcpse6vlcd"  # Updated session cookie
-    TARGET_HOST = "185.2.83.39"  # Updated host
+    SESSION_COOKIE = "c45mnflqc1veogeokq0di3q4vi"  # Updated session cookie from your request
+    TARGET_HOST = "185.2.83.39"
     TARGET_URL = f"http://{TARGET_HOST}/ints/client/res/data_smscdr.php"
 
     print("=" * 50)
