@@ -35,10 +35,12 @@ class OTPMonitorBot:
             r'(?<!\d)(\d{3})\s(\d{3})(?!\d)',  # 209 658
             r'(?<!\d)(\d{3})-(\d{3})(?!\d)',   # 209-658
             r'code[:\s]+(\d{4,8})',             # code: 123456
-            r'ржХрзЛржб[:\s]+(\d{4,8})',              # code in Bengali
+            r'কোড[:\s]+(\d{4,8})',              # code in Bengali
             r'(?<!\d)(\d{6})(?!\d)',            # 6 digits
             r'(?<!\d)(\d{5})(?!\d)',            # 5 digits
             r'(?<!\d)(\d{4})(?!\d)',            # 4 digits
+            r'#\s*([A-Za-z0-9]{6,20})',         # # 78581H29QFsn4Sr (Facebook style)
+            r'\b([A-Z0-9]{6,12})\b',            # pure alphanumeric caps code
         ]
 
     def hide_phone_number(self, phone_number):
@@ -54,7 +56,6 @@ class OTPMonitorBot:
         return str(operator)
 
     def escape_markdown(self, text):
-        """Escape markdown special characters"""
         text = str(text)
         return text.replace('`', "'")
 
@@ -87,12 +88,12 @@ class OTPMonitorBot:
     async def send_startup_message(self):
         startup_msg = (
             "🚀 *OTP Monitor Bot Started* 🚀\n\n"
-            "──────────────────\n\n"
+            "➖➖➖➖➖➖➖➖➖➖➖\n\n"
             "✅ *Status:* `Live & Monitoring`\n"
             "⚡ *Mode:* `First OTP Only`\n"
             f"📡 *Host:* `{self.target_host}`\n\n"
             f"⏰ *Start Time:* `{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}`\n\n"
-            "──────────────────\n"
+            "➖➖➖➖➖➖➖➖➖➖➖\n"
             "🤖 *OTP Monitor Bot*"
         )
 
@@ -110,7 +111,6 @@ class OTPMonitorBot:
             logger.info(f"⚠️ Startup message failed (monitoring will continue): {e}")
 
     def extract_otp(self, message):
-        """Extract OTP from message"""
         cleaned = re.sub(r'\d{4}-\d{2}-\d{2}', '', str(message))
         cleaned = re.sub(r'\d{2}:\d{2}:\d{2}', '', cleaned)
 
@@ -133,18 +133,20 @@ class OTPMonitorBot:
         service = self.escape_markdown(sms_data[3] if len(sms_data) > 3 else 'Unknown')
         msg = self.escape_markdown(message_text)
         code = self.escape_markdown(otp_code) if otp_code else 'N/A'
+        cost = self.escape_markdown(sms_data[6]) if len(sms_data) > 6 else '$'
 
         return (
-            "🔥 *New OTP Detected* 🔥\n"
-            "──────────────────\n\n"
-            f"📅 *Time:* `{timestamp}`\n"
-            f"📱 *Number:* `{phone}`\n"
-            f"🏢 *Operator:* `{operator}`\n"
-            f"🌐 *Service:* `{service}`\n\n"
-            f"🎯 *OTP Code:* `{code}`\n\n"
-            f"📩 *Message:*\n`{msg}`\n\n"
-            "──────────────────\n"
-            "🤖 *OTP Monitor Bot*"
+            "🔥 *𝐅𝐈𝐑𝐒𝐓 𝐎𝐓𝐏 𝐑𝐄𝐂𝐄𝐈𝐕𝐄𝐃* 🔥\n"
+            "➖➖➖➖➖➖➖➖➖➖➖\n\n"
+            f"📅 *𝐓𝐢𝐦𝐞:* `{timestamp}`\n"
+            f"📱 *𝐍𝐮𝐦𝐛𝐞𝐫:* `{phone}`\n"
+            f"🏢 *𝐎𝐩𝐞𝐫𝐚𝐭𝐨𝐫:* `{operator}`\n"
+            f"📟 *𝐏𝐥𝐚𝐭𝐟𝐨𝐫𝐦:* `{service}`\n\n"
+            f"🟢 *𝐎𝐓𝐏 𝐂𝐨𝐝𝐞:* `{code}`\n\n"
+            f"💰 *𝐂𝐨𝐬𝐭:* `{cost}`\n\n"
+            f"📝 *𝐌𝐞𝐬𝐬𝐚𝐠𝐞:*\n`{msg}`\n\n"
+            "➖➖➖➖➖➖➖➖➖➖➖\n"
+            "🤖 *𝐎𝐓𝐏 𝐌𝐨𝐧𝐢𝐭𝐨𝐫 𝐁𝐨𝐭*"
         )
 
     def create_response_buttons(self):
@@ -159,7 +161,7 @@ class OTPMonitorBot:
 
     def fetch_sms_data(self):
         current_date = time.strftime("%Y-%m-%d")
-        
+
         headers = {
             'Host': self.target_host,
             'Connection': 'keep-alive',
@@ -196,7 +198,7 @@ class OTPMonitorBot:
             'bSearchable_6': 'true', 'bSortable_6': 'true',
             'sSearch': '', 'bRegex': 'false',
             'iSortCol_0': '0', 'sSortDir_0': 'desc', 'iSortingCols': '1',
-            '_': '1773504077833'  # Updated timestamp from your request
+            '_': '1773504077833'
         }
 
         try:
@@ -258,12 +260,11 @@ class OTPMonitorBot:
                         timestamp = first_sms[0]
                         phone_number = str(first_sms[2])
 
-                        # Extract OTP from message fields (index 4 and above)
                         message_text = ""
                         otp_code = None
                         for i, field in enumerate(first_sms):
                             if i <= 3:
-                                continue  # Skip timestamp, operator, phone, service
+                                continue
                             if isinstance(field, str) and len(field) > 3 and field.strip() not in ('$', '', '-'):
                                 found = self.extract_otp(field)
                                 if found:
@@ -272,7 +273,6 @@ class OTPMonitorBot:
                                     logger.info(f"📍 OTP found at index {i}: {field[:80]}")
                                     break
 
-                        # Fallback
                         if not message_text:
                             message_text = str(first_sms[5]) if len(first_sms) > 5 else ""
 
@@ -329,7 +329,7 @@ class OTPMonitorBot:
 async def main():
     TELEGRAM_BOT_TOKEN = "8590402708:AAFtLuEcShBvMEoK2SdceRjO9Rn4817-nX0"
     GROUP_CHAT_ID = "-1003701215218"
-    SESSION_COOKIE = "c45mnflqc1veogeokq0di3q4vi"  # Updated session cookie from your request
+    SESSION_COOKIE = "c45mnflqc1veogeokq0di3q4vi"
     TARGET_HOST = "185.2.83.39"
     TARGET_URL = f"http://{TARGET_HOST}/ints/client/res/data_smscdr.php"
 
